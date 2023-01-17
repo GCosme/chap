@@ -91,7 +91,12 @@ function output = dat2matlab(full_dat_name, output_folder_name, log, events2, va
     print_log(['Finished loading messages: ' num2str(toc) ' seconds'], log);    
 
     event_msgs        = mes_data_table.message;
-    event_timestamps  = data.rate*86400*(datenum(mes_data_table.timestamp, 'yyyy-mm-dd HH:MM:SS.FFF')- datenum('01-Jan-1970'));
+
+    try
+        event_timestamps = data.rate*86400*(datenum(mes_data_table.timestamp, 'yyyy-mm-dd HH:MM:SS.FFF')- datenum('01-Jan-1970'));
+    catch
+        event_timestamps = data.rate*86400*(datenum(data.timestamps(:))- datenum('01-Jan-1970'))';
+    end
 
     print_log('Parsing trials', log);
     
@@ -109,7 +114,7 @@ function output = dat2matlab(full_dat_name, output_folder_name, log, events2, va
    
     trial_data.trial_length    = (trial_data.Trial_Offset_num-trial_data.Trial_Onset_num);
 
-    data.trial_data = struct2table(trial_data);
+    data.trial_data = struct2table(trial_data, "AsArray", true);
     
 
     data.total_var_data_table = [];
@@ -146,6 +151,19 @@ function output = dat2matlab(full_dat_name, output_folder_name, log, events2, va
 
     if ~isempty(event_ids)
         event_data_table = parse_data.parse_events(event_full_data, event_full_timestamps, timestamps, data.trial_data.Trial_Onset_num);
+        
+        % GONCALO COSME EDIT FOR SAT
+        % MANUALLY EDITING THE EVENT TABLE TO CORRECTLY LOAD THE EVENTS
+        event_data_array = cell2mat(table2array(event_data_table));
+        event_LEARN_FIXATION = event_data_array(:,1);
+        event_LEARN_CS = event_data_array(:,2);
+        event_LEARN_UA_SHOWPROBE = event_data_array(:,3);
+        event_LEARN_UA_SHOWBLANK = event_data_array(:,4);
+        event_LEARN_LEARN_FEEDBACK = event_data_array(:,5);
+        event_LEARN_LEARN_INTER_TRIAL = event_data_array(:,6);
+
+        event_data_table = table(event_LEARN_FIXATION, event_LEARN_CS, event_LEARN_UA_SHOWPROBE, event_LEARN_UA_SHOWBLANK, event_LEARN_LEARN_FEEDBACK, event_LEARN_LEARN_INTER_TRIAL);
+
         data.total_var_data_table = [data.total_var_data_table, event_data_table];
     end
     mm_file = strcat(path, filesep, file_name, '_mm.csv');
@@ -167,7 +185,7 @@ function output = dat2matlab(full_dat_name, output_folder_name, log, events2, va
     data.events2 = events2;
     data.vars2   = vars2;
     trial_data.trial_length = trial_data.Trial_Offset_num-trial_data.Trial_Onset_num;
-    data.total_var_data_table.event_Trial_Offset = trial_data.trial_length;
+    data.total_var_data_table.event_Trial_Offset = trial_data.trial_length';
 
     save([output_folder_name filesep file_name '.chp'], 'data');
     output = data;
