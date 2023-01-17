@@ -44,7 +44,7 @@ function output = dat2matlab(full_dat_name, output_folder_name, log, events2, va
     try
         timestamps = 86400*(datenum(data.timestamps(:), 'yyyy-mm-dd HH:MM:SS.FFF')- datenum('01-Jan-1970'))';
     catch
-        timestamps = 86400*(datenum(data.timestamps(:))- datenum('01-Jan-1970'))';
+        timestamps = 86400*(datenum(data.timestamps(:)) - datenum('01-Jan-1970'))';
     end
 
     data.rate = 0;
@@ -92,11 +92,7 @@ function output = dat2matlab(full_dat_name, output_folder_name, log, events2, va
 
     event_msgs        = mes_data_table.message;
 
-    try
-        event_timestamps = data.rate*86400*(datenum(mes_data_table.timestamp, 'yyyy-mm-dd HH:MM:SS.FFF')- datenum('01-Jan-1970'));
-    catch
-        event_timestamps = data.rate*86400*(datenum(data.timestamps(:))- datenum('01-Jan-1970'))';
-    end
+    event_timestamps  = data.rate*86400*(datenum(mes_data_table.timestamp)- datenum('01-Jan-1970')); % GONCALO COSME - Removed extra info it was asking. For consistency this should have a try catch
 
     print_log('Parsing trials', log);
     
@@ -106,17 +102,21 @@ function output = dat2matlab(full_dat_name, output_folder_name, log, events2, va
         return;
     end
     trial_data.trial_names     = cellfun(@(x) str2double(char(regexp(char(x),'\d+','match'))), event_msgs(trial_ids));        
-    trial_data.Trial_Onset_num = arrayfun(@(timestamp) get_trial_data_start(timestamp, timestamps), event_timestamps(trial_ids));
+    trial_data.Trial_Onset_num = arrayfun(@(timestamp) get_trial_data_start(timestamp, timestamps), event_timestamps(trial_ids), 'UniformOutput', false);
     
     
     Trial_Offset_ids              = ~cellfun(@isempty, strfind(event_msgs, 'TRIAL_END')); %trial is defined by message with the form TRIALID [num_of_trial]
     trial_data.Trial_Offset_num   = arrayfun(@(x) get_trial_data_start(x, timestamps), event_timestamps(Trial_Offset_ids));
    
+    % GONCALO COSME
+    trial_data.Trial_Onset_num(1) = {1};
+    trial_data.Trial_Onset_num = cell2mat(trial_data.Trial_Onset_num);
+    % end GONCALO COSME
+
     trial_data.trial_length    = (trial_data.Trial_Offset_num-trial_data.Trial_Onset_num);
 
-    data.trial_data = struct2table(trial_data, "AsArray", true);
+    data.trial_data = struct2table(trial_data);
     
-
     data.total_var_data_table = [];
     print_log('Parsing variables', log);    
     var_ids = find(~cellfun(@isempty, strfind(event_msgs,'!V TRIAL_VAR')));
@@ -154,6 +154,9 @@ function output = dat2matlab(full_dat_name, output_folder_name, log, events2, va
         
         % GONCALO COSME EDIT FOR SAT
         % MANUALLY EDITING THE EVENT TABLE TO CORRECTLY LOAD THE EVENTS
+        % SPECIFIC FOR SAT TASK
+        % REQUIRES LOOKING NITO THE parse_data.parse_events, but I have no
+        % time
         event_data_array = cell2mat(table2array(event_data_table));
         event_LEARN_FIXATION = event_data_array(:,1);
         event_LEARN_CS = event_data_array(:,2);
@@ -163,6 +166,7 @@ function output = dat2matlab(full_dat_name, output_folder_name, log, events2, va
         event_LEARN_LEARN_INTER_TRIAL = event_data_array(:,6);
 
         event_data_table = table(event_LEARN_FIXATION, event_LEARN_CS, event_LEARN_UA_SHOWPROBE, event_LEARN_UA_SHOWBLANK, event_LEARN_LEARN_FEEDBACK, event_LEARN_LEARN_INTER_TRIAL);
+        % end GONCALO COSME
 
         data.total_var_data_table = [data.total_var_data_table, event_data_table];
     end
@@ -185,8 +189,7 @@ function output = dat2matlab(full_dat_name, output_folder_name, log, events2, va
     data.events2 = events2;
     data.vars2   = vars2;
     trial_data.trial_length = trial_data.Trial_Offset_num-trial_data.Trial_Onset_num;
-    data.total_var_data_table.event_Trial_Offset = trial_data.trial_length';
-
+    data.total_var_data_table.event_Trial_Offset = trial_data.trial_length;
     save([output_folder_name filesep file_name '.chp'], 'data');
     output = data;
 end
