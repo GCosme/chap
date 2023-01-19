@@ -205,6 +205,15 @@ function [data_mat, blinks_data] = fix_all_blinks(data, z_outliers, zeros_outlie
     if strcmp(interpolation_type, 'Linear Interpolation')
         linear_interpolation = true;
     end
+
+    % GONCALO COSME
+    try 
+        data_mat.pupil_size(1, 1)<0;
+    catch
+        data_mat.pupil_size = str2double(data_mat.pupil_size);
+    end
+    % END GONCALO COSME
+
     if(data_mat.pupil_size(1, 1)<0) % eyelink support only one eye
         eye = 2; %right
     else
